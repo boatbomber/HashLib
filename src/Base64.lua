@@ -36,7 +36,7 @@ local bit32_band = bit32.band
 **--]]
 function Base64.Encode(Input: string): string
 	local InputLength = #Input
-	local Output = table.create(4 * math.floor((InputLength - 1) / 3) + 4) -- Credit to AstroCode for finding the formula.
+	local Output = table.create(4 * math.floor((InputLength + 2) / 3)) -- Credit to AstroCode for finding the formula.
 	local Length = 0
 
 	for Index = 1, InputLength, 3 do
