@@ -1,4 +1,3 @@
--- @original: https://gist.github.com/Reselim/40d62b17d138cc74335a1b0709e19ce2
 local Alphabet = {}
 local Indexes = {}
 
@@ -35,11 +34,12 @@ local bit32_band = bit32.band
 	@param [t:string] Input The input string to encode.
 	@returns [t:string] The string encoded in Base64.
 **--]]
-function Base64.Encode(Input)
-	local Output = {}
+function Base64.Encode(Input: string): string
+	local InputLength = #Input
+	local Output = table.create(4 * math.floor((InputLength + 2) / 3)) -- Credit to AstroCode for finding the formula.
 	local Length = 0
 
-	for Index = 1, #Input, 3 do
+	for Index = 1, InputLength, 3 do
 		local C1, C2, C3 = string.byte(Input, Index, Index + 2)
 
 		local A = bit32_rshift(C1, 2)
@@ -47,35 +47,27 @@ function Base64.Encode(Input)
 		local C = bit32_lshift(bit32_band(C2 or 0, 15), 2) + bit32_rshift(C3 or 0, 6)
 		local D = bit32_band(C3 or 0, 63)
 
-		Length = Length + 1
-		Output[Length] = Alphabet[A + 1]
-
-		Length = Length + 1
-		Output[Length] = Alphabet[B + 1]
-
-		Length = Length + 1
-		Output[Length] = C2 and Alphabet[C + 1] or 61
-
-		Length = Length + 1
-		Output[Length] = C3 and Alphabet[D + 1] or 61
+		Output[Length + 1] = Alphabet[A + 1]
+		Output[Length + 2] = Alphabet[B + 1]
+		Output[Length + 3] = C2 and Alphabet[C + 1] or 61
+		Output[Length + 4] = C3 and Alphabet[D + 1] or 61
+		Length += 4
 	end
 
-	local NewOutput = {}
-	local NewLength = 0
-	local IndexAdd4096Sub1
+	local Preallocate = math.ceil(Length / 4096)
+	if Preallocate == 1 then
+		return string.char(table.unpack(Output, 1, math.min(4096, Length)))
+	else
+		local NewOutput = table.create(Preallocate)
+		local NewLength = 0
 
-	for Index = 1, Length, 4096 do
-		NewLength = NewLength + 1
-		IndexAdd4096Sub1 = Index + 4096 - 1
+		for Index = 1, Length, 4096 do
+			NewLength += 1
+			NewOutput[NewLength] = string.char(table.unpack(Output, Index, math.min(Index + 4096 - 1, Length)))
+		end
 
-		NewOutput[NewLength] = string.char(table.unpack(
-			Output,
-			Index,
-			IndexAdd4096Sub1 > Length and Length or IndexAdd4096Sub1
-		))
+		return table.concat(NewOutput)
 	end
-
-	return table.concat(NewOutput)
 end
 
 --[[**
@@ -83,11 +75,12 @@ end
 	@param [t:string] Input The input string to decode.
 	@returns [t:string] The newly decoded string.
 **--]]
-function Base64.Decode(Input)
-	local Output = {}
+function Base64.Decode(Input: string): string
+	local InputLength = #Input
+	local Output = table.create(InputLength / 3 * 4)
 	local Length = 0
 
-	for Index = 1, #Input, 4 do
+	for Index = 1, InputLength, 4 do
 		local C1, C2, C3, C4 = string.byte(Input, Index, Index + 3)
 
 		local I1 = Indexes[C1] - 1
@@ -99,36 +92,33 @@ function Base64.Decode(Input)
 		local B = bit32_lshift(bit32_band(I2, 15), 4) + bit32_rshift(I3, 2)
 		local C = bit32_lshift(bit32_band(I3, 3), 6) + I4
 
-		Length = Length + 1
+		Length += 1
 		Output[Length] = A
-
 		if C3 ~= 61 then
-			Length = Length + 1
+			Length += 1
 			Output[Length] = B
 		end
 
 		if C4 ~= 61 then
-			Length = Length + 1
+			Length += 1
 			Output[Length] = C
 		end
 	end
 
-	local NewOutput = {}
-	local NewLength = 0
-	local IndexAdd4096Sub1
+	local Preallocate = math.ceil(Length / 4096)
+	if Preallocate == 1 then
+		return string.char(table.unpack(Output, 1, math.min(4096, Length)))
+	else
+		local NewOutput = table.create(Preallocate)
+		local NewLength = 0
 
-	for Index = 1, Length, 4096 do
-		NewLength = NewLength + 1
-		IndexAdd4096Sub1 = Index + 4096 - 1
+		for Index = 1, Length, 4096 do
+			NewLength += 1
+			NewOutput[NewLength] = string.char(table.unpack(Output, Index, math.min(Index + 4096 - 1, Length)))
+		end
 
-		NewOutput[NewLength] = string.char(table.unpack(
-			Output,
-			Index,
-			IndexAdd4096Sub1 > Length and Length or IndexAdd4096Sub1
-		))
+		return table.concat(NewOutput)
 	end
-
-	return table.concat(NewOutput)
 end
 
 return Base64
